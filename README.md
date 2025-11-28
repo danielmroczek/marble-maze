@@ -13,6 +13,7 @@ A browser-based 3D labyrinth game built with Three.js. Tilt the board with your 
 - Keyboard debug controls for fine-grained movement
 - Two camera modes: top-down overview and follow-camera
 - Toggleable lighting: focused spotlight vs more ambient light
+- Objective + timer HUD that teaches players to reach the red goal, tracks run time, and freezes with a celebratory win popup + confetti when you finish
 
 ## Getting Started
 
@@ -46,6 +47,7 @@ The project is intentionally minimal and build-less:
   - Initializes the Three.js scene, camera, renderer, lighting, and a tiltable board group.
   - Builds the maze geometry from a 2D `walls` grid.
   - Handles physics, collision detection, and input.
+  - Tracks timer state, updates the on-screen HUD copy, and triggers the win animation/confetti once the ball reaches the red goal tile.
   - Runs the main animation loop (`animate`) with `requestAnimationFrame`.
 - `mazeGenerator.js` implements a randomized depth-first search (DFS) maze generator that fills the `walls` grid with walls, floor, start, and end tiles.
 - `assets/` contains bitmap textures for walls, floor, and start/stop tiles.
@@ -59,8 +61,9 @@ Overlayed in the bottom-left of the screen and implemented in `main.js`:
 - `P`: pause/resume physics
 - `R`: reset ball to the start tile and clear velocity
 - `N`: generate a new random maze and reset the ball
- - `+` / `=`: increase maze size (up to 11), rebuild maze, reset ball
- - `-` / `_`: decrease maze size (down to 2), rebuild maze, reset ball
+- `+` / `=`: increase maze size (up to 11), rebuild maze, reset ball
+- `-` / `_`: decrease maze size (down to 2), rebuild maze, reset ball
+- After you reach the glowing red goal tile, the timer stops and the overlay reminds you: `R` to retry, `N` for a fresh maze, or `+/-` to change the maze size.
 - `L`: toggle lighting mode (spotlight vs ambient)
 - `W/A/S/D`: nudge the ball in the horizontal plane (debug)
 - `Q/E`: move the ball up/down (debug)
@@ -84,6 +87,7 @@ There is no automated test suite. Use manual testing in the browser:
 - Move the mouse and confirm the board tilts and the ball rolls.
 - Check that the marble collides with walls instead of passing through.
 - Toggle camera (`C`) and lighting (`L`) and ensure both modes work.
+- Reach the red goal tile and confirm the timer freezes, the win popup/confetti appear, and the overlay updates with the R/N/+/- instructions.
 - Reload several times to confirm that the maze layout changes and always has a valid path from start to finish.
 
 ## Deployment

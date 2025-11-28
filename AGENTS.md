@@ -11,7 +11,7 @@ Key technologies:
 
 High-level architecture:
 - `index.html` bootstraps the page, overlays instructions UI, configures the import map for `three`, and loads `main.js` as an ES module.
-- `main.js` is a monolithic game module: Three.js scene/camera/renderer setup, maze geometry construction from a grid, physics and collision, input handling, lighting, and the main animation loop.
+- `main.js` is a monolithic game module: Three.js scene/camera/renderer setup, maze geometry construction from a grid, physics and collision, input handling, lighting, HUD/timer management, and the main animation loop.
 - `mazeGenerator.js` contains a randomized depth-first-search maze generator that directly populates a 2D `walls` grid.
 - `assets/` hosts bitmap textures used for walls, floor, and start/stop tiles.
 
@@ -47,6 +47,10 @@ There is no `npm`, `pnpm`, or `yarn` usage here, and no `package.json`.
   - `generateMaze` from `./mazeGenerator.js`.
 - Game loop:
   - `animate()` calls `updatePhysics()` and `updateCamera()` then renders via `renderer.render(scene, camera)` using `requestAnimationFrame`.
+- HUD and messaging:
+  - `index.html` defines `#objectiveText`, `#timerDisplay`, and `#winMessage`. `main.js` updates them through helpers like `setObjectiveMessage()`, `updateTimerUI()`, `showWinMessage()`, and `hideWinMessage()`.
+  - `startRun()` centralizes maze rebuilds + ball resets + timer restarts. Prefer calling this helper (optionally with `{ rebuildMaze: true }`) instead of orchestrating `buildMaze()`/`resetBallState()` manually.
+  - `launchConfetti()` spawns temporary `.confetti-piece` elements; keep CSS in sync with any animation adjustments.
 - Input and controls (see also the instructions overlay in `index.html`):
   - Mouse move: update `tiltAngleX` and `tiltAngleZ` (clamped to ±45°) to tilt the board.
   - Keyboard (debug + modes):
@@ -54,8 +58,11 @@ There is no `npm`, `pnpm`, or `yarn` usage here, and no `package.json`.
     - `Q/E`: adjust ball Y (vertical) for debugging.
     - `C`: switch between overview and follow camera.
     - `P`: pause/resume physics.
-    - `R`: reset ball to the start tile and zero velocities.
+    - `R`: call `startRun()` to reset the current layout, timer, and overlay copy.
     - `L`: toggle between spotlight-focused and more ambient lighting.
+    - `N`: call `startRun({ rebuildMaze: true })` to regenerate a new random maze.
+    - `+` / `-`: adjust `mazeDimension` (bounded by 2–11), rebuild the maze, then restart via `startRun()`.
+  - When the ball reaches the red goal tile, `checkWinCondition()` stops the timer, updates the objective text to advertise `R`/`N`/`+/-`, shows the centered win popup, and fires confetti.
 
 When editing code:
 - Keep `main.js` as the central place for game state and rendering unless there is a deliberate refactor.
@@ -74,6 +81,7 @@ There is no formal automated test setup (no Jest/Vitest, etc.). Testing is manua
   - Start and end tiles are correctly textured (start/stop bitmaps).
   - Camera toggle (`C`) switches correctly between top-down and follow views.
   - Lighting toggle (`L`) switches between spotlight + dark background vs more ambient lighting.
+  - Timer HUD increments during play, freezes upon reaching the red tile, and the win popup/confetti plus R/N/+/- instructions appear.
   - Maze generation always produces a valid path from start to end (try reloading multiple times).
 
 If you add tests in the future, document their commands and locations in this section.
@@ -98,6 +106,7 @@ If you add tests in the future, document their commands and locations in this se
   - `ballX`, `ballY`, `ballZ`: ball coordinates in world space (Y is vertical).
   - `velocityX`, `velocityZ`, `accelerationX`, `accelerationZ`: planar motion state.
   - `tiltAngleX`, `tiltAngleZ`: board tilt angles in degrees.
+- HUD state lives in `hasWon`, `timerActive`, `levelStartTime`, `latestElapsedSeconds`, and `goalTileX/Z`. Keep these synchronized with DOM updates when altering flow.
 - Coordinate system:
   - Y-axis is up.
   - X/Z plane is horizontal.

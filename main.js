@@ -37,6 +37,46 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
+// HUD references
+const timerDisplay = document.getElementById("timerDisplay");
+const objectiveTextEl = document.getElementById("objectiveText");
+const winMessageEl = document.getElementById("winMessage");
+
+function setObjectiveMessage(message) {
+  if (objectiveTextEl) {
+    objectiveTextEl.textContent = message;
+  }
+}
+
+function showWinMessage(finalTimeSeconds) {
+  if (!winMessageEl) return;
+  winMessageEl.innerHTML = `Level Cleared!<br>Final time: ${finalTimeSeconds.toFixed(
+    2
+  )}s<br><small>R = reset · N = new level · +/- = resize</small>`;
+  winMessageEl.classList.add("visible");
+}
+
+function hideWinMessage() {
+  if (!winMessageEl) return;
+  winMessageEl.classList.remove("visible");
+  winMessageEl.textContent = "";
+}
+
+function launchConfetti() {
+  const colors = ["#ff6b6b", "#feca57", "#54a0ff", "#1dd1a1", "#f368e0"];
+  const totalPieces = 24;
+  for (let i = 0; i < totalPieces; i++) {
+    const piece = document.createElement("span");
+    piece.className = "confetti-piece";
+    piece.style.left = `${Math.random() * 100}vw`;
+    piece.style.top = `${Math.random() * 20}vh`;
+    piece.style.backgroundColor = colors[i % colors.length];
+    piece.style.animationDelay = `${Math.random() * 0.4}s`;
+    document.body.appendChild(piece);
+    piece.addEventListener("animationend", () => piece.remove());
+  }
+}
+
 // State variables
 let ballX = startX,
   ballZ = startZ,
@@ -51,12 +91,18 @@ let paused = false;
 let cameraMode = 0; // 0 = overview, 1 = follow
 const cameraModesCount = 2;
 let lightMode = true; // true = spotlight mode, false = ambient mode
+let hasWon = false;
+let timerActive = false;
+let levelStartTime = performance.now();
+let latestElapsedSeconds = 0;
 
 // Maze grid (will be generated)
 // 1 = wall, 0 = empty, -1 = start, -2 = end
 let walls = Array(gridHeight)
   .fill(null)
   .map(() => Array(gridWidth).fill(1));
+let goalTileX = 0;
+let goalTileZ = 0;
 
 // Lighting setup
 const AMBIENT_INTENSITY_SPOTLIGHT_MODE = 0.0;
@@ -158,6 +204,8 @@ function buildMaze() {
   }
 
   generateMaze(mazeDimension, walls, gridWidth, gridHeight);
+  goalTileX = 0;
+  goalTileZ = 0;
 
   for (let i = 0; i < gridWidth; i++) {
     for (let j = 0; j < gridHeight; j++) {
@@ -170,6 +218,8 @@ function buildMaze() {
           break;
         case -2: // End tile
           boardGroup.add(createFloor(x, 0, z, stopMaterial));
+          goalTileX = i;
+          goalTileZ = j;
           break;
         case 1: // Wall
           boardGroup.add(createCube(x, 0, z));
@@ -191,9 +241,23 @@ function resetBallState() {
   ball.position.set(ballX, BALL_RADIUS + ballY, -ballZ);
 }
 
-// Build the initial maze
+function startRun({ rebuildMaze = false } = {}) {
+  if (rebuildMaze) {
+    buildMaze();
+  }
+  resetBallState();
+  hasWon = false;
+  paused = false;
+  timerActive = true;
+  levelStartTime = performance.now();
+  latestElapsedSeconds = 0;
+  hideWinMessage();
+  setObjectiveMessage("Objective: Roll the ball onto the glowing red goal tile!");
+}
+
+// Build the initial maze and start timer
 buildMaze();
-resetBallState();
+startRun();
 
 // --- Collision helpers placed near physics for clarity ---
 function worldToTileX(x) {
@@ -262,6 +326,32 @@ function updatePhysics() {
   // Update board tilt
   boardGroup.rotation.x = (tiltAngleZ * Math.PI) / 180;
   boardGroup.rotation.z = (-tiltAngleX * Math.PI) / 180;
+
+  checkWinCondition();
+}
+
+function checkWinCondition() {
+  if (hasWon) return;
+  const tileX = worldToTileX(ballX);
+  const tileZ = worldToTileZ(-ballZ);
+  if (tileX === goalTileX && tileZ === goalTileZ) {
+    hasWon = true;
+    latestElapsedSeconds = (performance.now() - levelStartTime) / 1000;
+    timerActive = false;
+    setObjectiveMessage(
+      "Goal reached! Press R to reset, N for a new level, or +/- to change the maze size."
+    );
+    launchConfetti();
+    showWinMessage(latestElapsedSeconds);
+  }
+}
+
+function updateTimerUI() {
+  if (!timerDisplay) return;
+  if (timerActive) {
+    latestElapsedSeconds = (performance.now() - levelStartTime) / 1000;
+  }
+  timerDisplay.textContent = `Time: ${latestElapsedSeconds.toFixed(2)}s`;
 }
 
 // Camera update
@@ -287,6 +377,7 @@ function animate() {
 
   updatePhysics();
   updateCamera();
+  updateTimerUI();
 
   renderer.render(scene, camera);
 }
@@ -337,19 +428,17 @@ window.addEventListener("keydown", (event) => {
       updateCamera();
       break;
     case "r":
-      resetBallState();
+      startRun();
       break;
     case "n":
-      buildMaze();
-      resetBallState();
+      startRun({ rebuildMaze: true });
       break;
     case "=":
     case "+":
       if (mazeDimension < MAX_MAZE_DIMENSION) {
         mazeDimension++;
         rebuildGridForCurrentDimension();
-        buildMaze();
-        resetBallState();
+        startRun({ rebuildMaze: true });
       }
       break;
     case "-":
@@ -357,8 +446,7 @@ window.addEventListener("keydown", (event) => {
       if (mazeDimension > MIN_MAZE_DIMENSION) {
         mazeDimension--;
         rebuildGridForCurrentDimension();
-        buildMaze();
-        resetBallState();
+        startRun({ rebuildMaze: true });
       }
       break;
     case "l":
