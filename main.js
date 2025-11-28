@@ -59,14 +59,18 @@ let walls = Array(gridHeight)
   .map(() => Array(gridWidth).fill(1));
 
 // Lighting setup
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.0); // Initially dark
+const AMBIENT_INTENSITY_SPOTLIGHT_MODE = 0.0;
+const AMBIENT_INTENSITY_AMBIENT_MODE = 0.5;
+const ambientLight = new THREE.AmbientLight(
+  0xffffff,
+  AMBIENT_INTENSITY_SPOTLIGHT_MODE
+);
 scene.add(ambientLight);
 
 // Spotlight tuning constants (raise height & widen cone)
 const SPOTLIGHT_HEIGHT_OFFSET = 30; // was 10 (2x higher)
 const SPOTLIGHT_ANGLE_DEG = 7; // was 15 (wider beam to avoid narrow cone at high tilt)
 const SPOTLIGHT_INTENSITY_FOCUSED = 512.0; // intensity when in spotlight mode
-const SPOTLIGHT_INTENSITY_AMBIENT = 1.5; // intensity when ambient mode active
 
 // Spotlight that follows the ball
 const spotlight = new THREE.SpotLight(0xffffff, SPOTLIGHT_INTENSITY_FOCUSED);
@@ -361,12 +365,10 @@ window.addEventListener("keydown", (event) => {
       lightMode = !lightMode;
       if (lightMode) {
         // Spotlight mode
-        ambientLight.intensity = 0.1;
-        spotlight.intensity = SPOTLIGHT_INTENSITY_FOCUSED;
+        ambientLight.intensity = AMBIENT_INTENSITY_SPOTLIGHT_MODE;
       } else {
         // Ambient mode
-        ambientLight.intensity = 0.7;
-        spotlight.intensity = SPOTLIGHT_INTENSITY_AMBIENT;
+        ambientLight.intensity = AMBIENT_INTENSITY_AMBIENT_MODE;
       }
       break;
     case "escape":
