@@ -2,12 +2,14 @@ import * as THREE from "three";
 import { generateMaze } from "./mazeGenerator.js";
 
 // Constants
-const MAZE_DIMENSION = 7; // Maze half-size (grid is 2*MAZE_DIMENSION + 1)
-const GRID_WIDTH = MAZE_DIMENSION * 2 + 1;
-const GRID_HEIGHT = MAZE_DIMENSION * 2 + 1;
+const MIN_MAZE_DIMENSION = 2;
+const MAX_MAZE_DIMENSION = 11;
+let mazeDimension = 7; // Maze half-size (grid is 2*mazeDimension + 1)
+let gridWidth = mazeDimension * 2 + 1;
+let gridHeight = mazeDimension * 2 + 1;
 // Start position aligned to center of tile (1,1) to avoid half-tile offset
-const START_X = 2 * 1 - GRID_WIDTH; // equals -19 when MAZE_DIMENSION=10
-const START_Z = -(2 * 1 - GRID_HEIGHT); // equals 19 when MAZE_DIMENSION=10
+let startX = 2 * 1 - gridWidth;
+let startZ = -(2 * 1 - gridHeight);
 const BALL_RADIUS = 0.4;
 const EPSILON = 0.001;
 const BOUNCE_DAMPING = -0.2; // invert direction and resume at half the impact speed
@@ -36,8 +38,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // State variables
-let ballX = START_X,
-  ballZ = START_Z,
+let ballX = startX,
+  ballZ = startZ,
   ballY = 0; // Ball position
 let velocityX = 0,
   velocityZ = 0; // Velocity
@@ -52,9 +54,9 @@ let lightMode = true; // true = spotlight mode, false = ambient mode
 
 // Maze grid (will be generated)
 // 1 = wall, 0 = empty, -1 = start, -2 = end
-const walls = Array(GRID_HEIGHT)
+let walls = Array(gridHeight)
   .fill(null)
-  .map(() => Array(GRID_WIDTH).fill(1));
+  .map(() => Array(gridWidth).fill(1));
 
 // Lighting setup
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.0); // Initially dark
@@ -131,14 +133,32 @@ function createFloor(x, y, z, material = floorMaterial) {
   return floor;
 }
 
+function rebuildGridForCurrentDimension() {
+  gridWidth = mazeDimension * 2 + 1;
+  gridHeight = mazeDimension * 2 + 1;
+  startX = 2 * 1 - gridWidth;
+  startZ = -(2 * 1 - gridHeight);
+  walls = Array(gridHeight)
+    .fill(null)
+    .map(() => Array(gridWidth).fill(1));
+}
+
 // Build the maze geometry
 function buildMaze() {
-  generateMaze(MAZE_DIMENSION, walls, GRID_WIDTH, GRID_HEIGHT);
+  // Remove previous maze tiles but keep the ball in the group
+  for (let i = boardGroup.children.length - 1; i >= 0; i--) {
+    const child = boardGroup.children[i];
+    if (child !== ball) {
+      boardGroup.remove(child);
+    }
+  }
 
-  for (let i = 0; i < GRID_WIDTH; i++) {
-    for (let j = 0; j < GRID_HEIGHT; j++) {
-      const x = (i - GRID_WIDTH / 2) * 2 + 1 - (GRID_WIDTH % 2);
-      const z = (j - GRID_HEIGHT / 2) * 2 + 1 - (GRID_HEIGHT % 2);
+  generateMaze(mazeDimension, walls, gridWidth, gridHeight);
+
+  for (let i = 0; i < gridWidth; i++) {
+    for (let j = 0; j < gridHeight; j++) {
+      const x = (i - gridWidth / 2) * 2 + 1 - (gridWidth % 2);
+      const z = (j - gridHeight / 2) * 2 + 1 - (gridHeight % 2);
 
       switch (walls[j][i]) {
         case -1: // Start tile
@@ -158,15 +178,25 @@ function buildMaze() {
   }
 }
 
-// Build the maze
+function resetBallState() {
+  ballX = startX;
+  ballZ = startZ;
+  velocityX = 0;
+  velocityZ = 0;
+  ballY = 0;
+  ball.position.set(ballX, BALL_RADIUS + ballY, -ballZ);
+}
+
+// Build the initial maze
 buildMaze();
+resetBallState();
 
 // --- Collision helpers placed near physics for clarity ---
 function worldToTileX(x) {
-  return Math.floor((x + GRID_WIDTH + 1) / 2);
+  return Math.floor((x + gridWidth + 1) / 2);
 }
 function worldToTileZ(z) {
-  return Math.floor((z + GRID_HEIGHT + 1) / 2);
+  return Math.floor((z + gridHeight + 1) / 2);
 }
 function collideAxisX(nextX) {
   if (velocityX === 0) return;
@@ -175,7 +205,7 @@ function collideAxisX(nextX) {
   const edge = nextX + dir * BALL_RADIUS;
   const edgeTile = worldToTileX(edge);
   if (walls[rowIndex]?.[edgeTile] === 1) {
-    const wallCenter = 2 * edgeTile - GRID_WIDTH;
+    const wallCenter = 2 * edgeTile - gridWidth;
     const face = dir > 0 ? wallCenter - 1 : wallCenter + 1;
     ballX = face - dir * (BALL_RADIUS + EPSILON);
     velocityX *= BOUNCE_DAMPING;
@@ -190,7 +220,7 @@ function collideAxisZ(nextWorldZ) {
   const edge = nextWorldZ + dir * BALL_RADIUS;
   const edgeTile = worldToTileZ(edge);
   if (walls[edgeTile]?.[colIndexX] === 1) {
-    const wallCenter = 2 * edgeTile - GRID_HEIGHT;
+    const wallCenter = 2 * edgeTile - gridHeight;
     const face = dir > 0 ? wallCenter - 1 : wallCenter + 1;
     const adjustedWorldZ = face - dir * (BALL_RADIUS + EPSILON);
     ballZ = -adjustedWorldZ;
@@ -303,11 +333,29 @@ window.addEventListener("keydown", (event) => {
       updateCamera();
       break;
     case "r":
-      ballX = START_X;
-      ballZ = START_Z;
-      velocityX = 0;
-      velocityZ = 0;
-      ballY = 0;
+      resetBallState();
+      break;
+    case "n":
+      buildMaze();
+      resetBallState();
+      break;
+    case "=":
+    case "+":
+      if (mazeDimension < MAX_MAZE_DIMENSION) {
+        mazeDimension++;
+        rebuildGridForCurrentDimension();
+        buildMaze();
+        resetBallState();
+      }
+      break;
+    case "-":
+    case "_":
+      if (mazeDimension > MIN_MAZE_DIMENSION) {
+        mazeDimension--;
+        rebuildGridForCurrentDimension();
+        buildMaze();
+        resetBallState();
+      }
       break;
     case "l":
       lightMode = !lightMode;

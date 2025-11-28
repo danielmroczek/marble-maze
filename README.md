@@ -58,6 +58,9 @@ Overlayed in the bottom-left of the screen and implemented in `main.js`:
 - `C`: toggle camera view (overview / follow)
 - `P`: pause/resume physics
 - `R`: reset ball to the start tile and clear velocity
+- `N`: generate a new random maze and reset the ball
+ - `+` / `=`: increase maze size (up to 11), rebuild maze, reset ball
+ - `-` / `_`: decrease maze size (down to 2), rebuild maze, reset ball
 - `L`: toggle lighting mode (spotlight vs ambient)
 - `W/A/S/D`: nudge the ball in the horizontal plane (debug)
 - `Q/E`: move the ball up/down (debug)
