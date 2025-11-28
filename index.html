@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Maze</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Times New Roman', serif;
+        }
+        canvas {
+            display: block;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">
+        <strong>Controls:</strong><br>
+        Mouse: Tilt the board<br>
+        C: Toggle camera view<br>
+        P: Pause/Resume<br>
+        R: Reset ball position<br>
+        L: Toggle lighting mode<br>
+        WASD: Manual ball movement (debug)<br>
+    </div>
+    
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
