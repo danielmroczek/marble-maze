@@ -1,6 +1,6 @@
 # Marble Maze
 
-A browser-based 3D labyrinth game built with Three.js. Tilt the board with your mouse to roll a marble through a randomly generated maze, adapted from an original C++ OpenGL project and running entirely client-side.
+A browser-based 3D labyrinth game built with Three.js. Tilt the board with your mouse (or by tilting your phone) to roll a marble through a randomly generated maze and reach the red goal. The game is adapted from an original C++ OpenGL project and runs entirely client-side.
 
 > [!NOTE]
 > Marble Maze is a static web app: there is no backend, database, or build pipeline. You can host it on any static file server.
