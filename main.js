@@ -41,6 +41,33 @@ document.body.appendChild(renderer.domElement);
 const timerDisplay = document.getElementById("timerDisplay");
 const objectiveTextEl = document.getElementById("objectiveText");
 const winMessageEl = document.getElementById("winMessage");
+const instructionsPanel = document.getElementById("instructions");
+const mobileControlsEl = document.getElementById("mobileControls");
+const mobileCameraBtn = document.getElementById("mobileCameraBtn");
+const mobileLightingBtn = document.getElementById("mobileLightingBtn");
+const mobileResetBtn = document.getElementById("mobileResetBtn");
+const mobileNewLevelBtn = document.getElementById("mobileNewLevelBtn");
+
+const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+const platform = typeof navigator !== "undefined" ? navigator.platform : "";
+const maxTouchPoints =
+  typeof navigator !== "undefined" ? navigator.maxTouchPoints || 0 : 0;
+const isIOS13IPad = platform === "MacIntel" && maxTouchPoints > 1;
+const isMobile =
+  /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(userAgent) ||
+  isIOS13IPad;
+
+const DESKTOP_OBJECTIVE =
+  "Objective: Roll the ball onto the glowing red goal tile!";
+const MOBILE_PENDING_OBJECTIVE =
+  "Tap once to enable motion controls, then tilt your phone toward the glowing red goal tile.";
+const MOBILE_ACTIVE_OBJECTIVE =
+  "Tilt your phone gently to roll the ball onto the glowing red goal tile!";
+const MOBILE_BLOCKED_OBJECTIVE =
+  "Motion controls are unavailable. Use the buttons below to load a new maze or adjust the view.";
+
+let mobileMotionState = isMobile ? "pending" : "inactive";
+let mobileOrientationListenerAttached = false;
 
 function setObjectiveMessage(message) {
   if (objectiveTextEl) {
@@ -52,7 +79,11 @@ function showWinMessage(finalTimeSeconds) {
   if (!winMessageEl) return;
   winMessageEl.innerHTML = `Level Cleared!<br>Final time: ${finalTimeSeconds.toFixed(
     2
-  )}s<br><small>R = reset · N = new level · +/- = resize</small>`;
+  )}s<br><small>${
+    isMobile
+      ? "Use the buttons below to toggle the camera, lighting, or load a new maze."
+      : "R = reset · N = new level · +/- = resize"
+  }</small>`;
   winMessageEl.classList.add("visible");
 }
 
@@ -76,6 +107,129 @@ function launchConfetti() {
     piece.addEventListener("animationend", () => piece.remove());
   }
 }
+
+function getDefaultObjectiveCopy() {
+  if (!isMobile) {
+    return DESKTOP_OBJECTIVE;
+  }
+  if (mobileMotionState === "granted") {
+    return MOBILE_ACTIVE_OBJECTIVE;
+  }
+  if (mobileMotionState === "blocked") {
+    return MOBILE_BLOCKED_OBJECTIVE;
+  }
+  return MOBILE_PENDING_OBJECTIVE;
+}
+
+function initializeMobileExperience() {
+  if (!isMobile) {
+    return;
+  }
+  document.body.classList.add("is-mobile");
+  if (instructionsPanel) {
+    instructionsPanel.setAttribute("aria-hidden", "true");
+  }
+  configureMobileButtons();
+  prepareMobileOrientation();
+}
+
+function configureMobileButtons() {
+  if (!mobileControlsEl) {
+    return;
+  }
+  mobileControlsEl.setAttribute("aria-hidden", "false");
+  mobileCameraBtn?.addEventListener("click", cycleCameraMode);
+  mobileLightingBtn?.addEventListener("click", toggleLightingMode);
+  mobileResetBtn?.addEventListener("click", () => startRun());
+  mobileNewLevelBtn?.addEventListener("click", () =>
+    startRun({ rebuildMaze: true })
+  );
+}
+
+function prepareMobileOrientation() {
+  if (!isMobile) {
+    return;
+  }
+  if (typeof window.DeviceOrientationEvent === "undefined") {
+    mobileMotionState = "blocked";
+    setObjectiveMessage(getDefaultObjectiveCopy());
+    return;
+  }
+
+  const needsPermission =
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function";
+
+  if (!needsPermission) {
+    requestDeviceOrientationAccess();
+    return;
+  }
+
+  const requestPermission = () => {
+    requestDeviceOrientationAccess();
+  };
+
+  window.addEventListener("touchend", requestPermission, {
+    once: true,
+    passive: true,
+  });
+  window.addEventListener("click", requestPermission, { once: true });
+  setObjectiveMessage(getDefaultObjectiveCopy());
+}
+
+function requestDeviceOrientationAccess() {
+  if (mobileOrientationListenerAttached) {
+    return;
+  }
+  if (
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof DeviceOrientationEvent.requestPermission === "function"
+  ) {
+    DeviceOrientationEvent.requestPermission()
+      .then((state) => {
+        if (state === "granted") {
+          attachDeviceOrientationListener();
+          mobileMotionState = "granted";
+          setObjectiveMessage(getDefaultObjectiveCopy());
+        } else {
+          mobileMotionState = "blocked";
+          setObjectiveMessage(getDefaultObjectiveCopy());
+        }
+      })
+      .catch(() => {
+        mobileMotionState = "blocked";
+        setObjectiveMessage(getDefaultObjectiveCopy());
+      });
+  } else {
+    attachDeviceOrientationListener();
+    mobileMotionState = "granted";
+    setObjectiveMessage(getDefaultObjectiveCopy());
+  }
+}
+
+function attachDeviceOrientationListener() {
+  if (mobileOrientationListenerAttached) {
+    return;
+  }
+  window.addEventListener("deviceorientation", handleDeviceOrientation);
+  mobileOrientationListenerAttached = true;
+}
+
+function handleDeviceOrientation(event) {
+  const gamma = clampTilt(event.gamma ?? 0); // left/right
+  const beta = clampTilt(event.beta ?? 0); // front/back
+  tiltAngleX = gamma;
+  tiltAngleZ = beta;
+}
+
+function clampTilt(value) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(-45, Math.min(value, 45));
+}
+
+initializeMobileExperience();
 
 // State variables
 let ballX = startX,
@@ -252,7 +406,7 @@ function startRun({ rebuildMaze = false } = {}) {
   levelStartTime = performance.now();
   latestElapsedSeconds = 0;
   hideWinMessage();
-  setObjectiveMessage("Objective: Roll the ball onto the glowing red goal tile!");
+  setObjectiveMessage(getDefaultObjectiveCopy());
 }
 
 // Build the initial maze and start timer
@@ -323,9 +477,14 @@ function updatePhysics() {
   spotlight.position.set(ballX, BALL_RADIUS + SPOTLIGHT_HEIGHT_OFFSET, -ballZ);
   spotlight.target.position.set(ballX, 0, -ballZ);
 
-  // Update board tilt
-  boardGroup.rotation.x = (tiltAngleZ * Math.PI) / 180;
-  boardGroup.rotation.z = (-tiltAngleX * Math.PI) / 180;
+  // Update board tilt (desktop only)
+  if (isMobile) {
+    boardGroup.rotation.x = 0;
+    boardGroup.rotation.z = 0;
+  } else {
+    boardGroup.rotation.x = (tiltAngleZ * Math.PI) / 180;
+    boardGroup.rotation.z = (-tiltAngleX * Math.PI) / 180;
+  }
 
   checkWinCondition();
 }
@@ -339,7 +498,9 @@ function checkWinCondition() {
     latestElapsedSeconds = (performance.now() - levelStartTime) / 1000;
     timerActive = false;
     setObjectiveMessage(
-      "Goal reached! Press R to reset, N for a new level, or +/- to change the maze size."
+      isMobile
+        ? "Goal reached! Use the buttons below to switch the camera, toggle lighting, or load a new maze."
+        : "Goal reached! Press R to reset, N for a new level, or +/- to change the maze size."
     );
     launchConfetti();
     showWinMessage(latestElapsedSeconds);
@@ -371,6 +532,18 @@ function updateCamera() {
   }
 }
 
+function cycleCameraMode() {
+  cameraMode = (cameraMode + 1) % cameraModesCount;
+  updateCamera();
+}
+
+function toggleLightingMode() {
+  lightMode = !lightMode;
+  ambientLight.intensity = lightMode
+    ? AMBIENT_INTENSITY_SPOTLIGHT_MODE
+    : AMBIENT_INTENSITY_AMBIENT_MODE;
+}
+
 // Animation loop
 function animate() {
   requestAnimationFrame(animate);
@@ -389,13 +562,15 @@ window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Mouse movement for board tilt
-window.addEventListener("mousemove", (event) => {
-  tiltAngleX = (event.clientX / window.innerWidth - 0.5) * 90;
-  tiltAngleX = Math.max(-45, Math.min(tiltAngleX, 45));
-  tiltAngleZ = (event.clientY / window.innerHeight - 0.5) * 90;
-  tiltAngleZ = Math.max(-45, Math.min(tiltAngleZ, 45));
-});
+// Mouse movement for board tilt (desktop only)
+if (!isMobile) {
+  window.addEventListener("mousemove", (event) => {
+    tiltAngleX = (event.clientX / window.innerWidth - 0.5) * 90;
+    tiltAngleX = Math.max(-45, Math.min(tiltAngleX, 45));
+    tiltAngleZ = (event.clientY / window.innerHeight - 0.5) * 90;
+    tiltAngleZ = Math.max(-45, Math.min(tiltAngleZ, 45));
+  });
+}
 
 // Keyboard controls
 window.addEventListener("keydown", (event) => {
@@ -424,8 +599,7 @@ window.addEventListener("keydown", (event) => {
       paused = !paused;
       break;
     case "c":
-      cameraMode = (cameraMode + 1) % cameraModesCount;
-      updateCamera();
+      cycleCameraMode();
       break;
     case "r":
       startRun();
@@ -450,14 +624,7 @@ window.addEventListener("keydown", (event) => {
       }
       break;
     case "l":
-      lightMode = !lightMode;
-      if (lightMode) {
-        // Spotlight mode
-        ambientLight.intensity = AMBIENT_INTENSITY_SPOTLIGHT_MODE;
-      } else {
-        // Ambient mode
-        ambientLight.intensity = AMBIENT_INTENSITY_AMBIENT_MODE;
-      }
+      toggleLightingMode();
       break;
     case "escape":
       // Could add a menu or exit fullscreen

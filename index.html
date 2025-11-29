@@ -25,7 +25,15 @@
             max-width: 300px;
         }
         #objectiveText {
-            margin-top: 8px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 14px;
+            border-radius: 5px;
+            max-width: 320px;
             font-style: italic;
         }
         #timerDisplay {
@@ -59,6 +67,16 @@
             pointer-events: auto;
             animation: pop 0.9s ease forwards;
         }
+        @media (max-width: 768px) {
+            #winMessage {
+                font-size: 16px;
+                padding: 16px 18px;
+                min-width: 200px;
+            }
+            #timerDisplay {
+                font-size: 16px;
+            }
+        }
         @keyframes pop {
             0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
             60% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
@@ -78,6 +96,41 @@
             10% { opacity: 1; }
             100% { transform: translateY(60vh) rotate(320deg); opacity: 0; }
         }
+        #mobileControls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 12px;
+            z-index: 5;
+        }
+        #mobileControls button {
+            background: rgba(0, 0, 0, 0.75);
+            color: #fefefe;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 999px;
+            padding: 10px 16px;
+            font-size: 15px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        #mobileControls button:active {
+            transform: scale(0.96);
+        }
+        body.is-mobile #instructions {
+            display: none;
+        }
+        body.is-mobile #objectiveText {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: calc(100% - 40px);
+            text-align: center;
+        }
+        body.is-mobile #mobileControls {
+            display: flex;
+        }
     </style>
 </head>
 <body>
@@ -91,10 +144,16 @@
         +/-: Change maze size (2–11) + new maze<br>
         L: Toggle lighting mode<br>
         WASD: Manual ball movement (debug)<br>
-        <p id="objectiveText">Objective: Roll the ball onto the glowing red goal tile!</p>
     </div>
+    <div id="objectiveText">Objective: Roll the ball onto the glowing red goal tile!</div>
     <div id="timerDisplay">Time: 0.00s</div>
     <div id="winMessage" role="status" aria-live="polite"></div>
+    <div id="mobileControls" aria-label="Mobile controls">
+        <button id="mobileCameraBtn" type="button">Camera</button>
+        <button id="mobileLightingBtn" type="button">Lighting</button>
+        <button id="mobileResetBtn" type="button">Reset</button>
+        <button id="mobileNewLevelBtn" type="button">New Maze</button>
+    </div>
     
     <script type="importmap">
         {
